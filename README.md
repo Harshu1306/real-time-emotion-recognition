@@ -11,6 +11,10 @@ This project uses a Convolutional Neural Network (CNN) trained on the FER-2013 d
 - **Live Webcam** — Real-time emotion detection via browser camera
 - **Image Upload** — Emotion analysis on a static image
 
+Try the application here:
+
+**👉 https://huggingface.co/spaces/harshitha1306/FacialEmotionRecognition**
+
 ---
 
 ## 🎭 Emotions Detected
