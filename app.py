@@ -8,7 +8,7 @@ import cv2
 # LOAD MODEL
 # =====================================
 
-model = tf.keras.models.load_model("fer_model.keras")
+model = tf.keras.models.load_model("fer_model.h5")
 
 # =====================================
 # EMOTIONS
@@ -37,6 +37,7 @@ face_cascade = cv2.CascadeClassifier(
 # PREDICTION FUNCTION
 # =====================================
 
+
 def predict_emotion(face):
     face = cv2.resize(face, (64, 64))
     face = face.astype("float32") / 255.0
@@ -49,18 +50,19 @@ def predict_emotion(face):
 # IMAGE PREDICTION
 # =====================================
 
+
 def predict_image(image):
     if image is None:
         return None, "No image provided.", None
 
-    # Convert RGB to BGR for OpenCV
     img_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
 
     faces = face_cascade.detectMultiScale(
         gray,
-        scaleFactor=1.3,
-        minNeighbors=5
+        scaleFactor=1.1,   # less strict
+        minNeighbors=3,    # less strict
+        minSize=(30, 30)
     )
 
     if len(faces) == 0:
@@ -86,7 +88,6 @@ def predict_image(image):
             2
         )
 
-    # Build probability dataframe
     prob_df = pd.DataFrame({
         "Emotion": EMOTIONS,
         "Probability (%)": (all_preds * 100).round(2)
@@ -98,25 +99,40 @@ def predict_image(image):
 # WEBCAM PREDICTION
 # =====================================
 
+
 def predict_webcam(frame):
     if frame is None:
-        return None
+        return frame
 
+    output = frame.copy()
     gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
     faces = face_cascade.detectMultiScale(
         gray,
-        scaleFactor=1.3,
-        minNeighbors=5
+        scaleFactor=1.1,   # less strict — detects more faces
+        minNeighbors=3,    # less strict
+        minSize=(30, 30)
     )
+
+    if len(faces) == 0:
+        cv2.putText(
+            output,
+            "No face detected",
+            (20, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 0, 255),
+            2
+        )
+        return output
 
     for (x, y, w, h) in faces:
         face = gray[y:y+h, x:x+w]
         try:
             emotion, confidence, _ = predict_emotion(face)
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            cv2.rectangle(output, (x, y), (x+w, y+h), (0, 255, 0), 2)
             cv2.putText(
-                frame,
+                output,
                 f"{emotion} ({confidence:.1f}%)",
                 (x, y - 10),
                 cv2.FONT_HERSHEY_SIMPLEX,
@@ -127,19 +143,19 @@ def predict_webcam(frame):
         except Exception:
             pass
 
-    return frame
+    return output
 
 # =====================================
 # GRADIO UI
 # =====================================
+
 
 with gr.Blocks(title="😊 Facial Emotion Recognition") as demo:
 
     gr.Markdown(
         """
         # 😊 Facial Emotion Recognition System
-        Detects emotions from facial expressions using a CNN trained on the FER-2013 dataset.
-        Choose a mode below — **Upload Image** or **Live Webcam**.
+        
         """
     )
 
@@ -163,6 +179,7 @@ with gr.Blocks(title="😊 Facial Emotion Recognition") as demo:
                 )
 
             emotion_text = gr.Markdown(label="Detected Emotion")
+
             prob_table = gr.Dataframe(
                 label="📊 Emotion Probabilities (%)",
                 headers=["Probability (%)"]
@@ -181,17 +198,25 @@ with gr.Blocks(title="😊 Facial Emotion Recognition") as demo:
         # ---------------------------------
         with gr.TabItem("🎥 Live Webcam"):
 
-            gr.Markdown("Allow camera access and click **Start** for real-time emotion detection.")
+            gr.Markdown("Allow camera access for real-time emotion detection.")
 
             gr.Interface(
                 fn=predict_webcam,
-                inputs=gr.Image(sources=["webcam"], streaming=True, type="numpy", label="Webcam Feed"),
-                outputs=gr.Image(type="numpy", label="Detected Emotion"),
+                inputs=gr.Image(
+                    sources=["webcam"],
+                    streaming=True,
+                    type="numpy",
+                    label="Webcam Feed"
+                ),
+                outputs=gr.Image(
+                    type="numpy",
+                    label="Detected Emotion"
+                ),
                 live=True
             )
 
     gr.Markdown("---")
-    gr.Markdown("Built with TensorFlow, OpenCV, and Gradio.")
+
 
 # =====================================
 # LAUNCH
