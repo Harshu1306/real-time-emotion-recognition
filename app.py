@@ -1,34 +1,14 @@
-import streamlit as st
+import gradio as gr
 import tensorflow as tf
 import numpy as np
 import pandas as pd
 import cv2
-import av
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
-
-# =====================================
-# PAGE CONFIG
-# =====================================
-
-st.set_page_config(
-    page_title="Emotion Recognition",
-    page_icon="😊",
-    layout="wide"
-)
-
-st.title("😊 Facial Emotion Recognition System")
 
 # =====================================
 # LOAD MODEL
 # =====================================
 
-
-@st.cache_resource
-def load_model():
-    return tf.keras.models.load_model("fer_model.keras")
-
-
-model = load_model()
+model = tf.keras.models.load_model("fer_model.keras")
 
 # =====================================
 # EMOTIONS
@@ -57,260 +37,164 @@ face_cascade = cv2.CascadeClassifier(
 # PREDICTION FUNCTION
 # =====================================
 
-
 def predict_emotion(face):
-
     face = cv2.resize(face, (64, 64))
-
     face = face.astype("float32") / 255.0
-
-    face = face.reshape(
-        1,
-        64,
-        64,
-        1
-    )
-
-    preds = model.predict(
-        face,
-        verbose=0
-    )[0]
-
+    face = face.reshape(1, 64, 64, 1)
+    preds = model.predict(face, verbose=0)[0]
     idx = np.argmax(preds)
-
-    emotion = EMOTIONS[idx]
-
-    confidence = preds[idx] * 100
-
-    return emotion, confidence, preds
+    return EMOTIONS[idx], preds[idx] * 100, preds
 
 # =====================================
-# SIDEBAR
+# IMAGE PREDICTION
 # =====================================
 
+def predict_image(image):
+    if image is None:
+        return None, "No image provided.", None
 
-mode = st.sidebar.radio(
-    "Choose Mode",
-    [
-        "Live Webcam",
-        "Upload Image"
-    ]
-)
+    # Convert RGB to BGR for OpenCV
+    img_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
 
-# =====================================
-# VIDEO PROCESSOR
-# =====================================
-
-
-class EmotionProcessor(VideoProcessorBase):
-
-    def recv(self, frame):
-
-        img = frame.to_ndarray(
-            format="bgr24"
-        )
-
-        gray = cv2.cvtColor(
-            img,
-            cv2.COLOR_BGR2GRAY
-        )
-
-        faces = face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.3,
-            minNeighbors=5
-        )
-
-        for (x, y, w, h) in faces:
-
-            face = gray[
-                y:y+h,
-                x:x+w
-            ]
-
-            try:
-
-                emotion, confidence, _ = predict_emotion(
-                    face
-                )
-
-                cv2.rectangle(
-                    img,
-                    (x, y),
-                    (x+w, y+h),
-                    (0, 255, 0),
-                    2
-                )
-
-                label = (
-                    f"{emotion} "
-                    f"({confidence:.1f}%)"
-                )
-
-                cv2.putText(
-                    img,
-                    label,
-                    (x, y - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
-                    2
-                )
-
-            except Exception:
-                pass
-
-        return av.VideoFrame.from_ndarray(
-            img,
-            format="bgr24"
-        )
-
-# =====================================
-# LIVE WEBCAM MODE
-# =====================================
-
-
-if mode == "Live Webcam":
-
-    st.subheader(
-        "🎥 Real-Time Emotion Detection"
+    faces = face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.3,
+        minNeighbors=5
     )
 
-    st.info(
-        "Click START and allow "
-        "camera permissions."
-    )
+    if len(faces) == 0:
+        return image, "⚠️ No face detected. Please try another image.", None
 
-    webrtc_streamer(
-        key="emotion-recognition",
-        video_processor_factory=EmotionProcessor,
-        media_stream_constraints={
-            "video": True,
-            "audio": False
-        }
-    )
+    emotion_label = ""
+    all_preds = None
 
-# =====================================
-# IMAGE UPLOAD MODE
-# =====================================
+    for (x, y, w, h) in faces:
+        face = gray[y:y+h, x:x+w]
+        emotion, confidence, preds = predict_emotion(face)
+        all_preds = preds
+        emotion_label = f"😊 Detected Emotion: **{emotion}** ({confidence:.1f}%)"
 
-elif mode == "Upload Image":
-
-    st.subheader(
-        "📸 Upload Face Image"
-    )
-
-    uploaded_file = st.file_uploader(
-        "Upload an image",
-        type=[
-            "jpg",
-            "jpeg",
-            "png"
-        ]
-    )
-
-    if uploaded_file is not None:
-
-        file_bytes = np.asarray(
-            bytearray(
-                uploaded_file.read()
-            ),
-            dtype=np.uint8
-        )
-
-        image = cv2.imdecode(
-            file_bytes,
-            cv2.IMREAD_COLOR
-        )
-
-        gray = cv2.cvtColor(
+        cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
+        cv2.putText(
             image,
-            cv2.COLOR_BGR2GRAY
+            f"{emotion} ({confidence:.1f}%)",
+            (x, y - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 0),
+            2
         )
 
-        faces = face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.3,
-            minNeighbors=5
-        )
+    # Build probability dataframe
+    prob_df = pd.DataFrame({
+        "Emotion": EMOTIONS,
+        "Probability (%)": (all_preds * 100).round(2)
+    }).set_index("Emotion")
 
-        if len(faces) == 0:
-
-            st.warning(
-                "No face detected."
-            )
-
-        else:
-
-            all_preds = None
-
-            for (x, y, w, h) in faces:
-
-                face = gray[
-                    y:y+h,
-                    x:x+w
-                ]
-
-                emotion, confidence, preds = (
-                    predict_emotion(face)
-                )
-
-                all_preds = preds
-
-                cv2.rectangle(
-                    image,
-                    (x, y),
-                    (x+w, y+h),
-                    (0, 255, 0),
-                    2
-                )
-
-                cv2.putText(
-                    image,
-                    f"{emotion} "
-                    f"({confidence:.1f}%)",
-                    (x, y - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
-                    2
-                )
-
-            st.image(
-                cv2.cvtColor(
-                    image,
-                    cv2.COLOR_BGR2RGB
-                ),
-                caption="Prediction Result",
-                use_container_width=True
-            )
-
-            st.success(
-                f"Detected Emotion: "
-                f"{emotion} "
-                f"({confidence:.1f}%)"
-            )
-
-            st.subheader(
-                "📊 Emotion Probabilities"
-            )
-
-            prob_df = pd.DataFrame(
-                {
-                    "Emotion": EMOTIONS,
-                    "Probability (%)":
-                    all_preds * 100
-                }
-            )
-
-            st.bar_chart(
-                prob_df.set_index(
-                    "Emotion"
-                )
-            )
+    return image, emotion_label, prob_df
 
 # =====================================
-# FOOTER
+# WEBCAM PREDICTION
 # =====================================
 
-st.markdown("---")
+def predict_webcam(frame):
+    if frame is None:
+        return None
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+
+    faces = face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.3,
+        minNeighbors=5
+    )
+
+    for (x, y, w, h) in faces:
+        face = gray[y:y+h, x:x+w]
+        try:
+            emotion, confidence, _ = predict_emotion(face)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            cv2.putText(
+                frame,
+                f"{emotion} ({confidence:.1f}%)",
+                (x, y - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2
+            )
+        except Exception:
+            pass
+
+    return frame
+
+# =====================================
+# GRADIO UI
+# =====================================
+
+with gr.Blocks(title="😊 Facial Emotion Recognition") as demo:
+
+    gr.Markdown(
+        """
+        # 😊 Facial Emotion Recognition System
+        Detects emotions from facial expressions using a CNN trained on the FER-2013 dataset.
+        Choose a mode below — **Upload Image** or **Live Webcam**.
+        """
+    )
+
+    with gr.Tabs():
+
+        # ---------------------------------
+        # TAB 1 — Upload Image
+        # ---------------------------------
+        with gr.TabItem("📸 Upload Image"):
+
+            gr.Markdown("Upload a face image to detect the emotion.")
+
+            with gr.Row():
+                input_image = gr.Image(
+                    type="numpy",
+                    label="Input Image"
+                )
+                output_image = gr.Image(
+                    type="numpy",
+                    label="Prediction Result"
+                )
+
+            emotion_text = gr.Markdown(label="Detected Emotion")
+            prob_table = gr.Dataframe(
+                label="📊 Emotion Probabilities (%)",
+                headers=["Probability (%)"]
+            )
+
+            predict_btn = gr.Button("🔍 Predict Emotion", variant="primary")
+
+            predict_btn.click(
+                fn=predict_image,
+                inputs=input_image,
+                outputs=[output_image, emotion_text, prob_table]
+            )
+
+        # ---------------------------------
+        # TAB 2 — Live Webcam
+        # ---------------------------------
+        with gr.TabItem("🎥 Live Webcam"):
+
+            gr.Markdown("Allow camera access and click **Start** for real-time emotion detection.")
+
+            gr.Interface(
+                fn=predict_webcam,
+                inputs=gr.Image(sources=["webcam"], streaming=True, type="numpy", label="Webcam Feed"),
+                outputs=gr.Image(type="numpy", label="Detected Emotion"),
+                live=True
+            )
+
+    gr.Markdown("---")
+    gr.Markdown("Built with TensorFlow, OpenCV, and Gradio.")
+
+# =====================================
+# LAUNCH
+# =====================================
+
+demo.launch()
