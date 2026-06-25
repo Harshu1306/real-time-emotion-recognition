@@ -161,7 +161,6 @@ Face detection is handled by OpenCV's **Haar Cascade Classifier** (`haarcascade_
 | 1 | **Imbalanced Dataset** — Happy and Neutral classes dominate over Fear and Disgust | ⚠️ Dataset limitation; model performs weaker on minority classes |
 | 2 | **Real-Time Lag** — Webcam inference is slow on CPU | ⚠️ Partially mitigated; performance depends on hardware |
 | 3 | **TensorFlow Version Mismatch** — Model trained on TF 2.20.0 but cloud platforms support older versions | ✅ Re-saved model in `.h5` format compatible with TF 2.15.0 |
-| 4 | **Deployment Dependency Conflicts** — Streamlit Cloud failed due to `rich`/`pygments` conflicts | ✅ Migrated from Streamlit to **Gradio** with a simplified stack |
 | 5 | **Face Detection Sensitivity** — Strict Haar Cascade settings caused webcam to miss faces | ✅ Tuned `scaleFactor` and `minNeighbors` for better detection |
 
 ---
