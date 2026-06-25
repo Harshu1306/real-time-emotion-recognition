@@ -150,9 +150,7 @@ Face detection is handled by OpenCV's **Haar Cascade Classifier** (`haarcascade_
 ## 📊 Model Accuracy
 
 | Metric | Value |
-|--------|-------|
-| Training Accuracy | ~62–65% |
-| Validation Accuracy | ~60–63% |
+| Accuracy | 64.68% |
 | Dataset | FER-2013 (35,887 images) |
 
 > The FER-2013 dataset is inherently challenging — even state-of-the-art models typically achieve 65–75% on it due to noisy labels and high visual similarity between certain emotion classes.
