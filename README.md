@@ -1,6 +1,6 @@
 # 😊 Real-Time Facial Emotion Recognition
 
-A deep learning-based web application that detects and classifies human facial emotions in real time using a webcam or uploaded images — built with TensorFlow and Streamlit.
+A deep learning-based web application that detects and classifies human facial emotions in real time using a webcam or uploaded images — built with TensorFlow and Gradio.
 
 ---
 
@@ -32,18 +32,18 @@ This project uses a Convolutional Neural Network (CNN) trained on the FER-2013 d
 ```
 real_time_emotion-recognition/
 │
-├── app.py                            # Main Streamlit application
-├── train.ipynb                       # Model training notebook
-├── fer_model.keras                   # Trained CNN model
+├── app.py                               # Main Gradio application
+├── train.ipynb                          # Model training notebook (Google Colab)
+├── fer_model.h5                         # Trained CNN model (HDF5 format)
 ├── haarcascade_frontalface_default.xml  # Face detection classifier
-└── requirements.txt                  # Python dependencies
+└── requirements.txt                     # Python dependencies
 ```
 
 ---
 
 ## 🔗 Model Training — Google Colab
 
-The model was trained on **Google Colab** using a free GPU runtime for faster computation.
+The model was trained on **Google Colab** using a free GPU (T4) runtime for faster computation.
 
 > 📓 Open the training notebook: [`train.ipynb`](./train.ipynb)
 
@@ -53,7 +53,7 @@ The notebook covers the full training pipeline:
 - Data augmentation to improve generalization
 - Building and compiling the CNN architecture
 - Training with validation and early stopping
-- Saving the final model as `fer_model.keras`
+- Saving the final model as `fer_model.h5`
 
 To run it yourself, upload `train.ipynb` to [Google Colab](https://colab.research.google.com), enable a GPU runtime (**Runtime → Change runtime type → T4 GPU**), and execute all cells.
 
@@ -87,26 +87,22 @@ pip install -r requirements.txt
 ## 🚀 Running the Application
 
 ```bash
-streamlit run app.py
+python app.py
 ```
 
-Then open your browser and go to: `http://localhost:8501`
+Then open your browser and go to: `http://127.0.0.1:7860`
 
 ---
 
 ## 📦 Requirements
 
 ```
-streamlit
-tensorflow
+gradio
+tensorflow==2.15.0
 numpy
 pandas
-opencv-python
-av
-streamlit-webrtc
+opencv-python-headless
 ```
-
-> Generate `requirements.txt` with: `pip freeze > requirements.txt`
 
 ---
 
@@ -119,7 +115,7 @@ streamlit-webrtc
 | Input Shape | 64 × 64 × 1 (Grayscale) |
 | Output Classes | 7 |
 | Dataset | FER-2013 |
-| Model File | `fer_model.keras` |
+| Model File | `fer_model.h5` |
 
 Face detection is handled by OpenCV's **Haar Cascade Classifier** (`haarcascade_frontalface_default.xml`).
 
@@ -138,19 +134,20 @@ Face detection is handled by OpenCV's **Haar Cascade Classifier** (`haarcascade_
 ## 📸 Application Modes
 
 ### Live Webcam
-- Click **START** in the app and allow camera access.
+- Click **Start** in the app and allow camera access.
 - Detected faces are highlighted with a bounding box and emotion label.
+- Displays **"No face detected"** if no face is found in the frame.
 
 ### Upload Image
 - Upload a `.jpg`, `.jpeg`, or `.png` image.
-- The app detects all faces and displays emotion predictions with a probability bar chart.
+- The app detects all faces and displays emotion predictions with a probability table.
 
 ---
 
 ## 📊 Model Accuracy
 
 | Metric | Value |
-| Accuracy | 64.68% |
+| Test Accuracy | 64.68% |
 | Dataset | FER-2013 (35,887 images) |
 
 > The FER-2013 dataset is inherently challenging — even state-of-the-art models typically achieve 65–75% on it due to noisy labels and high visual similarity between certain emotion classes.
@@ -159,14 +156,12 @@ Face detection is handled by OpenCV's **Haar Cascade Classifier** (`haarcascade_
 
 ## ⚠️ Challenges & Limitations
 
-### 1. Imbalanced Dataset
-The FER-2013 dataset has a significant class imbalance — emotions like **Happy** and **Neutral** are heavily overrepresented compared to **Disgust** and **Fear**. This causes the model to perform better on frequent classes and struggle with rare ones.
-
-### 2. Low Accuracy on Similar Emotions
-Emotions such as **Fear** and **Disgust** share subtle facial muscle patterns, making them visually similar. The model frequently confuses these two classes, which is a known limitation of CNN-based approaches on FER-2013.
-
-### 3. Real-Time Lag / Webcam Issues
-Live webcam inference can experience latency depending on the host machine's hardware. The `streamlit-webrtc` library adds browser-level overhead, and inference speed is impacted when running on CPU without GPU acceleration.
+| # | Challenge | Status |
+|---|-----------|--------|
+| 1 | **Imbalanced Dataset** — Happy and Neutral classes dominate over Fear and Disgust | ⚠️ Dataset limitation; model performs weaker on minority classes |
+| 2 | **Real-Time Lag** — Webcam inference is slow on CPU | ⚠️ Partially mitigated; performance depends on hardware |
+| 3 | **TensorFlow Version Mismatch** — Model trained on TF 2.20.0 but cloud platforms support older versions | ✅ Re-saved model in `.h5` format compatible with TF 2.15.0 |
+| 4 | **Deployment Dependency Conflicts** — Streamlit Cloud failed due to `rich`/`pygments` conflicts | ✅ Migrated from Streamlit to **Gradio** with a simplified stack |
+| 5 | **Face Detection Sensitivity** — Strict Haar Cascade settings caused webcam to miss faces | ✅ Tuned `scaleFactor` and `minNeighbors` for better detection |
 
 ---
-
