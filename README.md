@@ -42,7 +42,6 @@ real_time_emotion-recognition/
 ├── haarcascade_frontalface_default.xml  # Face detection classifier
 └── requirements.txt                     # Python dependencies
 ```
-
 ---
 
 ## 🔗 Model Training — Google Colab
@@ -133,7 +132,108 @@ Face detection is handled by OpenCV's **Haar Cascade Classifier** (`haarcascade_
 4. The CNN model predicts emotion probabilities across 7 classes.
 5. The predicted emotion and confidence score are overlaid on the frame.
 
+# 🏗️ Model Architecture
+
+The Facial Emotion Recognition model is built using a **custom ResNet-inspired Convolutional Neural Network (CNN)**. The architecture combines residual learning, batch normalization, dropout regularization, and global average pooling to achieve robust feature extraction while reducing overfitting.
+
+## Overall Architecture
+
+```text
+Input Image (64 × 64 × 1)
+          │
+          ▼
+────────────────────────────────────
+Initial Feature Extraction
+────────────────────────────────────
+Conv2D (64 filters, 3×3)
+Batch Normalization
+ReLU Activation
+          │
+          ▼
+────────────────────────────────────
+Residual Stage 1
+────────────────────────────────────
+Residual Block (64 filters)
+Dropout (0.20)
+          │
+          ▼
+────────────────────────────────────
+Residual Stage 2
+────────────────────────────────────
+Residual Block (128 filters, stride=2)
+Residual Block (128 filters)
+Dropout (0.25)
+          │
+          ▼
+────────────────────────────────────
+Residual Stage 3
+────────────────────────────────────
+Residual Block (256 filters, stride=2)
+Residual Block (256 filters)
+Dropout (0.30)
+          │
+          ▼
+────────────────────────────────────
+Residual Stage 4
+────────────────────────────────────
+Residual Block (512 filters, stride=2)
+Dropout (0.40)
+          │
+          ▼
+Global Average Pooling
+          │
+          ▼
+Dense (256 neurons, ReLU)
+          │
+Batch Normalization
+          │
+Dropout (0.50)
+          │
+          ▼
+Output Layer
+Dense (7 neurons, Softmax)
+          │
+          ▼
+Predicted Emotion
+(Angry, Disgust, Fear, Happy, Neutral, Sad, Surprise)
+```
+
 ---
+
+## Residual Block Architecture
+
+Each residual block consists of two convolutional layers and a shortcut (skip connection). Instead of learning the complete feature transformation, the block learns only the residual features while preserving the original input through the shortcut connection.
+
+```text
+                 Input Feature Map
+                        │
+        ┌───────────────┴───────────────┐
+        │                               │
+        │                          Shortcut Path
+        │                               │
+        ▼                               │
+Conv2D (3×3)
+        │                               │
+Batch Normalization                     │
+        │                               │
+ReLU                                   │
+        │                               │
+Conv2D (3×3)                           │
+        │                               │
+Batch Normalization                     │
+        │                               │
+        │        (If dimensions change)
+        │                               │
+        │                   Conv2D (1×1, stride=2)
+        │                               │
+        │                   Batch Normalization
+        │                               │
+        └───────────────Add─────────────┘
+                        │
+                     ReLU
+                        │
+                     Output
+```
 
 ## 📸 Application Modes
 
